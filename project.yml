@@ -1,0 +1,121 @@
+name: SimpleAudioManager
+
+options:
+  bundleIdPrefix: dev.codejo
+  deploymentTarget:
+    macOS: "15.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+
+settings:
+  base:
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    CODE_SIGN_IDENTITY: "-"
+    CODE_SIGN_STYLE: Manual
+    DEVELOPMENT_TEAM: ""
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    DEAD_CODE_STRIPPING: YES
+
+packages:
+  SAMKit:
+    path: Packages/SAMKit
+
+targets:
+  # AudioServerPlugIn loaded by coreaudiod from /Library/Audio/Plug-Ins/HAL.
+  SAMDriver:
+    type: bundle
+    platform: macOS
+    sources:
+      - path: Driver
+        excludes:
+          - "Info.plist"
+      - path: Vendor/libASPL/src
+        excludes:
+          - "**/*.json"
+    settings:
+      base:
+        PRODUCT_NAME: SimpleAudioManager
+        PRODUCT_BUNDLE_IDENTIFIER: dev.codejo.SimpleAudioManager.Driver
+        WRAPPER_EXTENSION: driver
+        INFOPLIST_FILE: Driver/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        CLANG_CXX_LANGUAGE_STANDARD: c++20
+        CLANG_CXX_LIBRARY: libc++
+        GCC_SYMBOLS_PRIVATE_EXTERN: YES
+        HEADER_SEARCH_PATHS:
+          - $(SRCROOT)/Vendor/libASPL/include
+          - $(SRCROOT)/Vendor/libASPL/src
+          - $(SRCROOT)/Packages/SAMKit/Sources/SAMDriverAPI/include
+          - $(SRCROOT)/Driver
+        WARNING_CFLAGS:
+          - -Wall
+          - -Wno-unused-parameter
+          - -Wno-invalid-offsetof
+          - -Wno-shorten-64-to-32
+          - -Wno-deprecated-anon-enum-enum-conversion
+          - -Wno-reorder-init-list
+        SKIP_INSTALL: YES
+        ENABLE_HARDENED_RUNTIME: NO
+        ONLY_ACTIVE_ARCH: NO
+        ARCHS: "arm64 x86_64"
+    dependencies:
+      - sdk: CoreAudio.framework
+      - sdk: CoreFoundation.framework
+      - sdk: Accelerate.framework
+
+  DriverCoreTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - Tests/DriverCoreTests
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.codejo.SimpleAudioManager.DriverCoreTests
+        GENERATE_INFOPLIST_FILE: YES
+        CLANG_CXX_LANGUAGE_STANDARD: c++20
+        HEADER_SEARCH_PATHS:
+          - $(SRCROOT)/Driver/Core
+    dependencies:
+      - sdk: Accelerate.framework
+
+  SimpleAudioManager:
+    type: application
+    platform: macOS
+    sources:
+      - path: App
+    settings:
+      base:
+        PRODUCT_NAME: Simple Audio Manager
+        PRODUCT_MODULE_NAME: SimpleAudioManager
+        PRODUCT_BUNDLE_IDENTIFIER: dev.codejo.SimpleAudioManager
+        INFOPLIST_FILE: App/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        SWIFT_VERSION: "6.0"
+        SWIFT_STRICT_CONCURRENCY: complete
+        SWIFT_APPROACHABLE_CONCURRENCY: YES
+        SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
+        ENABLE_HARDENED_RUNTIME: YES
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        COMBINE_HIDPI_IMAGES: YES
+    dependencies:
+      - package: SAMKit
+        product: SAMKit
+      # Ship the driver inside the app so it can install itself.
+      - target: SAMDriver
+        embed: true
+        copy:
+          destination: resources
+
+schemes:
+  SimpleAudioManager:
+    build:
+      targets:
+        SimpleAudioManager: all
+        SAMDriver: all
+    test:
+      targets:
+        - DriverCoreTests
+        - package: SAMKit/SAMKitTests
+    run:
+      config: Debug
