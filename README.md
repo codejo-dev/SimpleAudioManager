@@ -60,11 +60,15 @@ make logs                                                  # driver log stream
 | `App/` | SwiftUI app: settings window, menu bar picker, driver installer |
 | `Tests/DriverCoreTests/` | XCTest for the driver core (drift simulation included) |
 
-The clock servo design is adapted from [proxy-audio-device](https://github.com/briankendall/proxy-audio-device) (Unlicense).
-
 ## Known limits
 
 - Calling the HAL client API from inside `coreaudiod` is not officially supported by Apple (proxy-audio-device has relied on it for years).
 - The proxy carries LPCM only. AC3/DTS passthrough players should output to the physical device directly; the redirect only affects the system default device.
 - Custom icons appear where macOS reads `kAudioDevicePropertyIcon` (Audio MIDI Setup); Control Center may use its own glyphs.
 - Below 100% volume the output is not bit-perfect (it is at 100%).
+
+## License
+
+MIT © 2026 [codejo](https://codejo.com). See [LICENSE](LICENSE).
+
+Third-party components and their licenses are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and on the app's About page.

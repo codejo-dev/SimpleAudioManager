@@ -14,6 +14,7 @@ enum SnapshotRenderer {
 
         for (suffix, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
             render(MainWindow(initialSelection: .general), size: CGSize(width: 820, height: 560), appearance: appearance, to: directory.appending(path: "main-general-\(suffix).png"))
+            renderWindow(selection: .about, scrolled: false, appearance: appearance, to: directory.appending(path: "window-about-\(suffix).png"))
             renderWindow(selection: .general, scrolled: true, appearance: appearance, to: directory.appending(path: "window-settings-scrolled-\(suffix).png"))
             if let fixed {
                 render(MainWindow(initialSelection: .device(fixed.uid)), size: CGSize(width: 820, height: 560), appearance: appearance, to: directory.appending(path: "main-device-\(suffix).png"))

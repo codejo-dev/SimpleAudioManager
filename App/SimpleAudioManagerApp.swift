@@ -20,7 +20,20 @@ struct SimpleAudioManagerApp: App {
                 .accessibilityLabel("Sound")
         }
         .menuBarExtraStyle(.window)
+        .commands {
+            // The app menu's About item opens the About page in the window.
+            CommandGroup(replacing: .appInfo) {
+                Button("About Simple Audio Manager") {
+                    MainWindowController.shared.show()
+                    NotificationCenter.default.post(name: .showAboutPage, object: nil)
+                }
+            }
+        }
     }
+}
+
+extension Notification.Name {
+    static let showAboutPage = Notification.Name("dev.codejo.SimpleAudioManager.showAboutPage")
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {

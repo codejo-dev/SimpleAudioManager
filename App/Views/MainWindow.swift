@@ -6,6 +6,7 @@ enum SidebarItem: Hashable {
     case inputDevice(String)     // physical device UID (input role)
     case disconnectedProxy(String) // proxy UID whose target is not connected
     case general
+    case about
 }
 
 struct MainWindow: View {
@@ -44,9 +45,16 @@ struct MainWindow: View {
                 }
             }
             .safeAreaInset(edge: .bottom, spacing: 0) {
-                SettingsSidebarButton(isSelected: selection == .general) {
-                    selection = .general
+                VStack(spacing: 2) {
+                    SidebarFooterButton(title: "Settings", symbol: "gearshape", isSelected: selection == .general) {
+                        selection = .general
+                    }
+                    SidebarFooterButton(title: "About", symbol: "info.circle", isSelected: selection == .about) {
+                        selection = .about
+                    }
                 }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 10)
             }
             .navigationSplitViewColumnWidth(min: 220, ideal: 250, max: 320)
         } detail: {
@@ -66,6 +74,9 @@ struct MainWindow: View {
         }
         .onAppear {
             showOnboarding = !model.settings.onboardingCompleted
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .showAboutPage)) { _ in
+            selection = .about
         }
     }
 
@@ -93,6 +104,8 @@ struct MainWindow: View {
             }
         case .general, nil:
             GeneralView()
+        case .about:
+            AboutView()
         }
     }
 
@@ -109,8 +122,10 @@ struct MainWindow: View {
     }
 }
 
-/// "Settings", pinned to the bottom of the sidebar.
-struct SettingsSidebarButton: View {
+/// Settings and About, pinned to the bottom of the sidebar.
+struct SidebarFooterButton: View {
+    let title: String
+    let symbol: String
     let isSelected: Bool
     let action: () -> Void
     @State private var isHovered = false
@@ -118,11 +133,11 @@ struct SettingsSidebarButton: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 8) {
-                Image(systemName: "gearshape")
+                Image(systemName: symbol)
                     .font(.system(size: 14))
                     .foregroundStyle(isSelected ? AnyShapeStyle(.white) : AnyShapeStyle(.tint))
                     .frame(width: 20)
-                Text("Settings")
+                Text(title)
                     .foregroundStyle(isSelected ? .white : .primary)
                 Spacer(minLength: 0)
             }
@@ -136,8 +151,6 @@ struct SettingsSidebarButton: View {
         }
         .buttonStyle(.plain)
         .onHover { isHovered = $0 }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 10)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
