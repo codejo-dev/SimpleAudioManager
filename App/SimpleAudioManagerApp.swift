@@ -2,7 +2,20 @@ import AppKit
 import SAMKit
 import SwiftUI
 
+/// Entry point. Command-line modes run before any UI or audio monitoring
+/// starts; otherwise the SwiftUI app launches normally.
 @main
+enum AppEntry {
+    static func main() {
+        let arguments = CommandLine.arguments
+        if arguments.contains("--prepare-uninstall") {
+            Uninstaller.prepare(purge: arguments.contains("--purge"))
+            return
+        }
+        SimpleAudioManagerApp.main()
+    }
+}
+
 struct SimpleAudioManagerApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var model = AppModel.shared

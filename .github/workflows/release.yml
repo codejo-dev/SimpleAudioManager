@@ -1,0 +1,131 @@
+# Builds and publishes a GitHub Release when a version tag is pushed:
+#
+#   git tag v1.2.0 && git push origin v1.2.0
+#
+# Tags with a suffix (v1.2.0-beta.1) become pre-releases.
+#
+# Optional repository secrets for Developer ID signing and notarization
+# (without them the release is ad-hoc signed and install.sh clears the
+# quarantine flag):
+#   MACOS_CERTIFICATE_P12        base64 of the "Developer ID Application" .p12
+#   MACOS_CERTIFICATE_PASSWORD   password of that .p12
+#   APPLE_TEAM_ID                team ID
+#   NOTARY_APPLE_ID              Apple ID used for notarization
+#   NOTARY_PASSWORD              app-specific password for that Apple ID
+
+name: Release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to build and publish, e.g. v1.2.0"
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: macos-26
+    timeout-minutes: 60
+    env:
+      TAG: ${{ github.event.inputs.tag || github.ref_name }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+          submodules: recursive
+
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Run tests
+        run: make test
+
+      - name: Import signing certificate
+        env:
+          MACOS_CERTIFICATE_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
+          MACOS_CERTIFICATE_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+        run: |
+          if [ -z "$MACOS_CERTIFICATE_P12" ]; then
+            echo "No signing certificate configured; the release is ad-hoc signed."
+            exit 0
+          fi
+          KEYCHAIN="$RUNNER_TEMP/release.keychain-db"
+          KEYCHAIN_PASSWORD="$(uuidgen)"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          echo "$MACOS_CERTIFICATE_P12" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+          security import "$RUNNER_TEMP/certificate.p12" -k "$KEYCHAIN" -P "$MACOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          rm -f "$RUNNER_TEMP/certificate.p12"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" > /dev/null
+          read -ra EXISTING <<< "$(security list-keychains -d user | tr -d '"' | xargs)"
+          security list-keychains -d user -s "$KEYCHAIN" "${EXISTING[@]}"
+          IDENTITY="$(security find-identity -v -p codesigning "$KEYCHAIN" | grep 'Developer ID Application' | head -1 | sed -E 's/.*"(.*)".*/\1/')"
+          if [ -z "$IDENTITY" ]; then
+            echo "::error::The certificate is not a Developer ID Application identity."
+            exit 1
+          fi
+          echo "SIGNING_IDENTITY=$IDENTITY" >> "$GITHUB_ENV"
+          echo "KEYCHAIN=$KEYCHAIN" >> "$GITHUB_ENV"
+
+      - name: Build release
+        env:
+          DEVELOPMENT_TEAM: ${{ secrets.APPLE_TEAM_ID }}
+          NOTARY_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          NOTARY_APPLE_ID: ${{ secrets.NOTARY_APPLE_ID }}
+          NOTARY_PASSWORD: ${{ secrets.NOTARY_PASSWORD }}
+        run: Scripts/build-release.sh "$TAG" "${{ github.run_number }}"
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${TAG#v}"
+          NOTES="$RUNNER_TEMP/notes.md"
+          {
+            echo "## Install"
+            echo
+            echo "1. Download \`SimpleAudioManager-$VERSION.zip\` and unzip it."
+            echo "2. In Terminal, run \`./install.sh\` in the unzipped folder (asks for your administrator password)."
+            echo
+            echo "To remove it again: \`./uninstall.sh\` (add \`--purge\` to also remove settings and proxies)."
+            if [ -z "${SIGNING_IDENTITY:-}" ]; then
+              echo
+              echo "_This build is not notarized; \`install.sh\` clears the download quarantine so macOS lets it run._"
+            fi
+            echo
+          } > "$NOTES"
+          PRERELEASE=()
+          if [[ "$VERSION" == *-* ]]; then PRERELEASE=(--prerelease); fi
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            gh release upload "$TAG" dist/* --clobber
+          else
+            gh release create "$TAG" dist/* \
+              --title "Simple Audio Manager $VERSION" \
+              --notes-file "$NOTES" \
+              --generate-notes \
+              --verify-tag \
+              "${PRERELEASE[@]}"
+          fi
+
+      - name: Remove signing keychain
+        if: always()
+        run: |
+          if [ -n "${KEYCHAIN:-}" ]; then
+            security delete-keychain "$KEYCHAIN" || true
+          fi

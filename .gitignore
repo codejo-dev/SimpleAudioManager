@@ -6,3 +6,4 @@ DerivedData/
 *.xcodeproj/xcuserdata/
 *.xcodeproj/project.xcworkspace/xcuserdata/
 SimpleAudioManager.xcodeproj/
+dist/

@@ -6,13 +6,26 @@ Gives fixed-volume outputs (S/PDIF, HDMI, DisplayPort) a working **native** macO
 - The proxy forwards audio to the physical device **inside Core Audio** (its driver service process). There is no loopback input, so no microphone permission and no orange mic indicator. Audio keeps working when the app is not running.
 - An optional menu bar **Sound picker** (styled like Control Center's Sound module) shows only the devices you want, with your names and icons.
 
-## Requirements
+## Install a release
 
-- macOS 15 or later (built and tested with Xcode 27.2 / Swift 6.4)
+1. Download `SimpleAudioManager-<version>.zip` from [Releases](https://github.com/codejo-dev/SimpleAudioManager/releases) and unzip it.
+2. In Terminal, in the unzipped folder:
+
+   ```bash
+   ./install.sh
+   ```
+
+   It copies the app to `/Applications`, installs the audio driver into `/Library/Audio/Plug-Ins/HAL` and restarts Core Audio (sound drops for about a second). It asks for your administrator password.
+
+To remove everything again: `./uninstall.sh`. Add `--purge` to also delete settings, icons and saved proxies.
+
+## Build from source
+
+Requirements:
+
+- macOS 15 or later (built and tested with Xcode 27.2 / Swift 6.4; CI uses the `macos-26` runner)
 - [XcodeGen](https://github.com/yonaskolb/XcodeGen): `brew install xcodegen`
 - After cloning: `git submodule update --init` (pulls libASPL)
-
-## Build and run
 
 ```bash
 make app      # builds "build/Debug/Simple Audio Manager.app" (driver embedded)
@@ -20,15 +33,36 @@ make test     # unit tests: SAMKit (Swift Testing) + driver core (XCTest)
 make run      # build and launch
 ```
 
-## Install the driver
-
-Either use **Install Driver…** in the app, or:
+Install the driver from a local build with **Install Driver…** in the app, or:
 
 ```bash
 make install  # copies the driver to /Library/Audio/Plug-Ins/HAL and restarts coreaudiod (sudo)
 ```
 
 Audio drops for about a second while Core Audio restarts. To remove it: `make uninstall`.
+
+## Releasing
+
+Push a version tag; the [Release workflow](.github/workflows/release.yml) runs the tests, builds a universal (Apple Silicon + Intel) release and publishes it as a GitHub Release:
+
+```bash
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+- The tag sets the version (`v0.2.0` → 0.2.0); the workflow run number becomes the build number.
+- Tags with a suffix (`v0.2.0-beta.1`) are published as pre-releases.
+- To build the same package locally: `make release VERSION=0.2.0` (writes `dist/`).
+
+Releases are ad-hoc signed by default; `install.sh` clears the download quarantine so macOS lets them run. For Developer ID signing and notarization, add these repository secrets:
+
+| Secret | Value |
+|---|---|
+| `MACOS_CERTIFICATE_P12` | base64 of your *Developer ID Application* certificate (.p12) |
+| `MACOS_CERTIFICATE_PASSWORD` | password of that .p12 |
+| `APPLE_TEAM_ID` | your team ID |
+| `NOTARY_APPLE_ID` | Apple ID used for notarization |
+| `NOTARY_PASSWORD` | app-specific password for that Apple ID |
 
 ## Use
 
