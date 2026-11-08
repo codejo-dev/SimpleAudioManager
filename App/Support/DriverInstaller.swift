@@ -30,9 +30,13 @@ enum DriverInstaller {
         let dest = shellQuote(installPath)
         let command = [
             "rm -rf \(dest)",
-            "cp -R \(shellQuote(source.path)) \(dest)",
+            "ditto \(shellQuote(source.path)) \(dest)",
             "chown -R root:wheel \(dest)",
             "chmod -R go-w \(dest)",
+            // A downloaded app that was opened via "Open Anyway" is still
+            // quarantined, and the copy would inherit the flag. Core Audio may
+            // refuse to load a quarantined driver that is not notarized.
+            "(xattr -dr com.apple.quarantine \(dest) || true)",
             restartCoreAudio,
         ].joined(separator: " && ")
         try runAsAdministrator(command)
