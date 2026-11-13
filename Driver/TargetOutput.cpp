@@ -164,9 +164,10 @@ std::vector<HALDevice> ListHALDevices()
 
 // MARK: - TargetOutput
 
-TargetOutput::TargetOutput(std::shared_ptr<ProxyEngine> engine, dispatch_queue_t controlQueue)
+TargetOutput::TargetOutput(std::shared_ptr<ProxyEngine> engine, dispatch_queue_t controlQueue, dispatch_queue_t listenerQueue)
     : engine_(std::move(engine))
     , queue_(controlQueue)
+    , listenerQueue_(listenerQueue)
     , scratch_(size_t(ProxyEngine::kMaxIOFrames) * engine_->channels, 0.0f)
 {
 }
@@ -321,25 +322,31 @@ void TargetOutput::AddListener(AudioObjectPropertySelector selector,
     bool volume)
 {
     std::weak_ptr<TargetOutput> weak = weak_from_this();
+    dispatch_queue_t control = queue_;
+    // The HAL calls this synchronously on the listener queue, possibly while
+    // tearing the device down. Only hand off to the control queue here: work
+    // done (or waited for) here can deadlock with RemoveListeners().
     AudioObjectPropertyListenerBlock block = ^(UInt32, const AudioObjectPropertyAddress*) {
-        auto self = weak.lock();
-        if (!self || self->device_ == kAudioObjectUnknown) {
-            return;
-        }
-        if (volume) {
-            if (self->OnVolumeChanged) {
-                self->OnVolumeChanged(self->HardwareVolume());
+        dispatch_async(control, ^{
+            auto self = weak.lock();
+            if (!self || self->device_ == kAudioObjectUnknown) {
+                return;
             }
-            return;
-        }
-        self->Refresh();
-        if (self->OnChanged) {
-            self->OnChanged();
-        }
+            if (volume) {
+                if (self->OnVolumeChanged) {
+                    self->OnVolumeChanged(self->HardwareVolume());
+                }
+                return;
+            }
+            self->Refresh();
+            if (self->OnChanged) {
+                self->OnChanged();
+            }
+        });
     };
     block = Block_copy(block);
     const auto address = Address(selector, scope, element);
-    if (AudioObjectAddPropertyListenerBlock(device_, &address, queue_, block) == noErr) {
+    if (AudioObjectAddPropertyListenerBlock(device_, &address, listenerQueue_, block) == noErr) {
         listeners_.push_back({address, block});
     } else {
         Block_release(block);
@@ -350,7 +357,7 @@ void TargetOutput::RemoveListeners()
 {
     for (auto& listener : listeners_) {
         if (device_ != kAudioObjectUnknown) {
-            AudioObjectRemovePropertyListenerBlock(device_, &listener.address, queue_, listener.block);
+            AudioObjectRemovePropertyListenerBlock(device_, &listener.address, listenerQueue_, listener.block);
         }
         Block_release(listener.block);
     }

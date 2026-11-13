@@ -6,7 +6,10 @@
 //
 // Threading: every method except the IOProc runs on the manager's serial
 // control queue. Never call into this class from a HAL plug-in callback
-// directly; dispatch to the queue instead.
+// directly; dispatch to the queue instead. Property listeners are registered
+// on a separate listener queue and only hand off to the control queue, so the
+// HAL never waits for the control queue (that deadlocked when a device died
+// while the control queue was removing its listeners).
 
 #pragma once
 
@@ -59,7 +62,7 @@ std::vector<HALDevice> ListHALDevices();
 class TargetOutput : public std::enable_shared_from_this<TargetOutput>
 {
 public:
-    TargetOutput(std::shared_ptr<ProxyEngine> engine, dispatch_queue_t controlQueue);
+    TargetOutput(std::shared_ptr<ProxyEngine> engine, dispatch_queue_t controlQueue, dispatch_queue_t listenerQueue);
     ~TargetOutput();
 
     bool Attach(AudioObjectID device);
@@ -104,6 +107,7 @@ private:
 
     std::shared_ptr<ProxyEngine> engine_;
     dispatch_queue_t queue_;
+    dispatch_queue_t listenerQueue_;
     AudioObjectID device_ = kAudioObjectUnknown;
     AudioDeviceIOProcID ioProc_ = nullptr;
     bool running_ = false;

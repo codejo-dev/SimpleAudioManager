@@ -81,6 +81,7 @@ macOS does not let any app hide or rename a physical device; those properties ar
 swift run --package-path Packages/SAMKit samctl devices   # all devices, UIDs, volume support
 swift run --package-path Packages/SAMKit samctl status    # proxies, forwarding state, dropouts, clock
 swift run --package-path Packages/SAMKit samctl add <target-uid> "Living Room"
+swift run --package-path Packages/SAMKit samctl stress-removal 20  # driver test: remove a device mid-playback
 make logs                                                  # driver log stream
 ```
 

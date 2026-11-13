@@ -6,6 +6,7 @@
 //   swift run samctl rename <proxy-uid> <name>
 //   swift run samctl remove <proxy-uid>
 //   swift run samctl select <device-uid>
+//   swift run samctl stress-removal [cycles]   regression test: remove a device mid-playback
 
 import Foundation
 import SAMKit
@@ -74,6 +75,8 @@ do {
     case "remove":
         guard let uid = args.first else { fail("usage: samctl remove <proxy-uid>") }
         try DriverLink.writeConfig(try DriverLink.readConfig().filter { $0.uid != uid })
+    case "stress-removal":
+        try stressTargetRemoval(cycles: args.first.flatMap(Int.init) ?? 10)
     case "select":
         guard let uid = args.first else { fail("usage: samctl select <device-uid>") }
         try AudioHardware.setDefault(.output, uid: uid)

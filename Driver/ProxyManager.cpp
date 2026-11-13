@@ -49,6 +49,7 @@ ProxyManager::ProxyManager(std::shared_ptr<const aspl::Context> context, std::sh
     : context_(std::move(context))
     , plugin_(std::move(plugin))
     , queue_(dispatch_queue_create("dev.codejo.sam.driver.control", DISPATCH_QUEUE_SERIAL))
+    , listenerQueue_(dispatch_queue_create("dev.codejo.sam.driver.listeners", DISPATCH_QUEUE_SERIAL))
 {
 }
 
@@ -181,15 +182,20 @@ void ProxyManager::InstallSystemListener()
         return;
     }
     std::weak_ptr<ProxyManager> weak = weak_from_this();
+    dispatch_queue_t control = queue_;
+    // Runs on the listener queue; hand off and return (see the header).
     AudioObjectPropertyListenerBlock block = ^(UInt32, const AudioObjectPropertyAddress*) {
-        if (auto self = weak.lock()) {
-            self->Reconcile();
-        }
+        Post(control, [weak] {
+            if (auto self = weak.lock()) {
+                self->Reconcile();
+            }
+        });
     };
     devicesListener_ = Block_copy(block);
     const AudioObjectPropertyAddress address = {
         kAudioHardwarePropertyDevices, kAudioObjectPropertyScopeGlobal, kAudioObjectPropertyElementMain};
-    const OSStatus status = AudioObjectAddPropertyListenerBlock(kAudioObjectSystemObject, &address, queue_, devicesListener_);
+    const OSStatus status = AudioObjectAddPropertyListenerBlock(
+        kAudioObjectSystemObject, &address, listenerQueue_, devicesListener_);
     if (status != noErr) {
         SAM_LOG_ERROR("could not listen for device changes: %d", int(status));
         Block_release(devicesListener_);
@@ -284,7 +290,7 @@ void ProxyManager::Publish(Entry& entry, AudioObjectID targetID)
 
     auto engine = std::make_shared<ProxyEngine>(channels);
     engine->softwareVolume.store(spec.volumeMode == VolumeMode::Software);
-    auto target = std::make_shared<TargetOutput>(engine, queue_);
+    auto target = std::make_shared<TargetOutput>(engine, queue_, listenerQueue_);
     if (!target->Attach(targetID)) {
         entry.error = "Could not open the target device";
         return;

@@ -4,7 +4,11 @@
 // mode) volume in sync, persists config and volume, and exposes status.
 //
 // All work happens on one serial dispatch queue. HAL plug-in callbacks only
-// enqueue work; they never wait for the queue.
+// enqueue work; they never wait for the queue. HAL client property listeners
+// run on a separate listener queue and only hand off to the control queue:
+// Core Audio calls them synchronously (while holding its own locks), so they
+// must never wait for the control queue, which may itself be inside a HAL call
+// such as AudioObjectRemovePropertyListenerBlock.
 
 #pragma once
 
@@ -78,6 +82,7 @@ private:
     std::shared_ptr<aspl::Plugin> plugin_;
     std::shared_ptr<aspl::Storage> storage_;
     dispatch_queue_t queue_;
+    dispatch_queue_t listenerQueue_;
     AudioObjectPropertyListenerBlock devicesListener_ = nullptr;
 
     // Queue-owned.
