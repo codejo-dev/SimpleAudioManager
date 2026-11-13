@@ -40,7 +40,7 @@ struct OnboardingView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     ForEach(fixedVolumeOutputs) { device in
                         HStack {
-                            Image(systemName: model.symbol(for: device)).frame(width: 20)
+                            Image(deviceSymbol: model.symbol(for: device)).frame(width: 20)
                             Text(device.name)
                             Spacer()
                             Button("Create Proxy") {

@@ -49,7 +49,7 @@ struct MainWindow: View {
                     SidebarFooterButton(title: "Settings", symbol: "gearshape", isSelected: selection == .general) {
                         selection = .general
                     }
-                    SidebarFooterButton(title: "About", symbol: "info.circle", isSelected: selection == .about) {
+                    SidebarFooterButton(title: "About", symbol: "info.circle.fill", isSelected: selection == .about) {
                         selection = .about
                     }
                 }
@@ -134,6 +134,7 @@ struct SidebarFooterButton: View {
         Button(action: action) {
             HStack(spacing: 8) {
                 Image(systemName: symbol)
+                    .symbolRenderingMode(.hierarchical)
                     .font(.system(size: 14))
                     .foregroundStyle(isSelected ? AnyShapeStyle(.white) : AnyShapeStyle(.tint))
                     .frame(width: 20)

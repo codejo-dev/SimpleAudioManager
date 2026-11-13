@@ -41,14 +41,9 @@ enum SnapshotRenderer {
                 to: directory.appending(path: "menubar-icons-\(suffix).png")
             )
             render(
-                LazyVGrid(columns: Array(repeating: GridItem(.fixed(36), spacing: 6), count: 5), spacing: 6) {
-                    ForEach(IconRenderer.symbols, id: \.self) { symbol in
-                        Image(deviceSymbol: symbol).font(.system(size: 16)).frame(width: 36, height: 32)
-                    }
-                }
-                .padding(10)
-                .background(.background),
-                size: CGSize(width: 220, height: 170), appearance: appearance,
+                SymbolGrid(selection: "soundbar", onSelect: { _ in })
+                    .background(.background),
+                size: CGSize(width: 470, height: 400), appearance: appearance,
                 to: directory.appending(path: "symbols-\(suffix).png")
             )
             render(OnboardingView(done: {}).background(.background), size: CGSize(width: 520, height: 420), appearance: appearance, to: directory.appending(path: "onboarding-\(suffix).png"))

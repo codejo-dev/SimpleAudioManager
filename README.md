@@ -94,6 +94,7 @@ make logs                                                  # driver log stream
 | `Packages/SAMKit/` | Swift package: Core Audio model (`AudioHardwareSystem`), driver link, device policy, `samctl` |
 | `App/` | SwiftUI app: settings window, menu bar picker, driver installer |
 | `Tests/DriverCoreTests/` | XCTest for the driver core (drift simulation included) |
+| `Scripts/render-symbols.py` | Generates the app's own two-tone symbols (soundbar, webcam, microphones, …) into `App/Assets.xcassets` |
 
 ## Known limits
 

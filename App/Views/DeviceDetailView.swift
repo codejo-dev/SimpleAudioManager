@@ -268,16 +268,44 @@ struct SymbolPicker: View {
                 .frame(width: 22, height: 18)
         }
         .popover(isPresented: $isPresented, arrowEdge: .bottom) {
-            LazyVGrid(columns: Array(repeating: GridItem(.fixed(40), spacing: 4), count: 5), spacing: 4) {
-                ForEach(IconRenderer.symbols.filter { IconRenderer.symbolImage($0) != nil }, id: \.self) { symbol in
-                    SymbolCell(symbol: symbol, isSelected: symbol == selection) {
-                        selection = symbol
-                        isPresented = false
+            SymbolGrid(selection: selection) { symbol in
+                selection = symbol
+                isPresented = false
+            }
+        }
+    }
+}
+
+/// The icon picker's content: one titled row per kind of device.
+struct SymbolGrid: View {
+    let selection: String
+    let onSelect: (String) -> Void
+
+    private static let columns = Array(
+        repeating: GridItem(.fixed(40), spacing: 4),
+        count: IconRenderer.symbolGroups.map(\.symbols.count).max() ?? 8
+    )
+
+    var body: some View {
+        LazyVGrid(columns: Self.columns, alignment: .leading, spacing: 4) {
+            ForEach(IconRenderer.symbolGroups) { group in
+                Section {
+                    ForEach(group.symbols, id: \.self) { symbol in
+                        SymbolCell(symbol: symbol, isSelected: symbol == selection) {
+                            onSelect(symbol)
+                        }
                     }
+                } header: {
+                    Text(group.title)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.leading, 4)
+                        .padding(.top, group.id == IconRenderer.symbolGroups.first?.id ? 0 : 6)
                 }
             }
-            .padding(10)
         }
+        .padding(12)
     }
 }
 

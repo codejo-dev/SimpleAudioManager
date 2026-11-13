@@ -76,7 +76,25 @@ final class AppModel {
     func reloadDriver() {
         driverInstalled = DriverLink.isInstalled
         proxies = driverInstalled ? ((try? DriverLink.readConfig()) ?? []) : []
+        refreshIconFiles()
         refreshStatus()
+    }
+
+    /// Points each proxy at its current icon file. A redrawn custom symbol
+    /// gets a new file name, and missing files are rendered again.
+    private func refreshIconFiles() {
+        let updated = proxies.map { proxy in
+            guard let symbol = settings.deviceSymbols[proxy.uid] else { return proxy }
+            var proxy = proxy
+            proxy.iconURL = IconRenderer.iconURL(for: symbol)
+            return proxy
+        }
+        if updated != proxies {
+            saveProxies(updated)
+        }
+        if driverInstalled {
+            IconRenderer.removeStaleIcons(keeping: Set(proxies.compactMap(\.iconURL)))
+        }
     }
 
     private func refreshStatus() {
